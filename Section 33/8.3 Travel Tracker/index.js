@@ -19,22 +19,22 @@ const db = new pg.Client({
 db.connect();
 
 let countries = [];
+let availableCountries = [];
 let totalCountries = 0;
 
-db.query("SELECT country_code FROM visited_countries", (err, res) => {
+db.query("SELECT country_code, country_name FROM countries", (err, res) => {
   if (err) {
     console.error("Error executing query", err.stack);
   } else {
-    countries = res.rows.map(row => row.country_code);
-    totalCountries = countries.length;
+    availableCountries = res.rows;
   }
   //db.end(); -> We should not end the connection here because we will be using it for further queries.
 });
+
 async function getVisitedCountries() {
   try {
     const result = await db.query("SELECT country_code FROM visited_countries");
-    return result.rows.map(row => row.country_code);
-    
+    return result.rows.map((row) => row.country_code);
   } catch (err) {
     console.error("Error executing query", err.stack);
   }
@@ -49,17 +49,33 @@ app.get("/", async (req, res) => {
 });
 
 app.post("/add", async (req, res) => {
-  const countryCode = req.body.country.trim().toUpperCase();
+  if (!req.body.country) {
+    return res.redirect("/");
+  }
+
+  const userInput = req.body.country.trim().toUpperCase();
+
+  const countryInfo = availableCountries.find(
+    (row) =>
+      row.country_code.toUpperCase() === userInput ||
+      row.country_name.toUpperCase() === userInput,
+  );
+
   try {
-    
-    if (countryCode && !countries.includes(countryCode)) {
-      await db.query("INSERT INTO visited_countries (country_code) VALUES ($1)", [countryCode]);
+    if (countryInfo && !countries.includes(countryInfo.country_code)) {
+      await db.query(
+        "INSERT INTO visited_countries (country_code) VALUES ($1)",
+        [countryInfo.country_code],
+      );
+
+      console.log(`Added ${countryInfo.country} (${countryInfo.country_code})`);
     } else {
-      console.log("Country code is either empty or already exists.");
+      console.log("Country already exists or does not exist in database.");
     }
   } catch (err) {
     console.error("Error executing query", err.stack);
   }
+
   res.redirect("/");
 });
 

@@ -1,9 +1,11 @@
 import express from "express";
 import bodyParser from "body-parser";
 import pg from "pg";
+import bcrypt from "bcrypt";
 
 const app = express();
 const port = 3000;
+const saltRounds = 10;
 
 const db = new pg.Client({
   user: "postgres",
@@ -32,24 +34,35 @@ app.get("/register", (req, res) => {
 app.post("/register", async (req, res) => {
   const email = req.body.username;
   const password = req.body.password;
-  const existingUsers = await db.query("SELECT * FROM users WHERE email = $1", [
-    email,
-  ]);
-  if (existingUsers.rows.length > 0) {
-    // User already exists, redirect to register page
-    console.log("User already exists. Redirecting to register page.");
-    return res.redirect("/register");
-  } else {
-    try {
-      await db.query("INSERT INTO users (email, password) VALUES ($1, $2)", [
-        email,
-        password,
-      ]);
-      res.render("secrets.ejs");
-    } catch (err) {
-      console.error("Error registering user:", err);
-      res.redirect("/register");
+
+  try {
+    const existingUsers = await db.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email],
+    );
+    if (existingUsers.rows.length > 0) {
+      // User already exists, redirect to register page
+      console.log("User already exists. Redirecting to register page.");
+      return res.redirect("/register");
+    } else {
+      //password encryption
+      bcrypt.hash(password, saltRounds, async (err, hash) => {
+        if (err) {
+          console.error("Error hashing password:", err);
+          return res.redirect("/register");
+        } else {
+          const result = await db.query(
+            "INSERT INTO users (email, password) VALUES ($1, $2)",
+            [email, hash],
+          );
+          console.log(result);
+          res.render("secrets.ejs");
+        }
+      });
     }
+  } catch (err) {
+    console.error("Error registering user:", err);
+    res.redirect("/register");
   }
 });
 
@@ -58,17 +71,27 @@ app.post("/login", async (req, res) => {
   const password = req.body.password;
 
   try {
-    const result = await db.query(
-      "SELECT * FROM users WHERE email = $1 AND password = $2",
-      [email, password],
-    );
-    const dbPassword = result.rows[0]?.password;
-    if (result.rows.length > 0 && dbPassword === password) {
-      res.render("secrets.ejs");
-    } else {
-      console.log("Invalid password credentials. Redirecting to login page.");
-      res.redirect("/login");
+    const result = await db.query("SELECT * FROM users WHERE email = $1", [
+      email,
+    ]);
+    console.log("Login email:", email);
+    console.log("Database query result:", result.rows);
+
+    if (result.rows.length === 0) {
+      console.log("User not found. Redirecting to login page.");
+      return res.redirect("/login");
     }
+
+    const dbPassword = result.rows[0].password;
+    console.log("Database password:", dbPassword);
+
+    const isValidPassword = await bcrypt.compare(password, dbPassword);
+    if (isValidPassword) {
+      return res.render("secrets.ejs");
+    }
+
+    console.log("Invalid password credentials. Redirecting to login page.");
+    return res.redirect("/login");
   } catch (err) {
     console.error("Error logging in user:", err);
     res.redirect("/login");

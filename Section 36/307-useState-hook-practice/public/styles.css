@@ -1,0 +1,32 @@
+body {
+  font: normal 14px/100% "Andale Mono", AndaleMono, monospace;
+  color: #fff;
+  padding: 50px;
+  margin: 0 auto;
+  background-color: #374954;
+  text-align: center;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 12vw, 6.25rem);
+  line-height: 1.1;
+  margin: 0;
+}
+
+.container {
+  width: min(100%, 48rem);
+  margin: 20vh auto 0;
+}
+
+button {
+  display: inline;
+  background-color: #6bbe92;
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 5px;
+  margin: 10px;
+  text-align: center;
+  color: #fff;
+  font-weight: bold;
+  font-size: clamp(1.5rem, 6vw, 3.125rem);
+}
